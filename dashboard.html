@@ -1,0 +1,73 @@
+{% raw %}{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 m-0">Mon calendrier de pointage – {{ "%02d"|format(month) }}/{{ year }}</h1>
+  <div class="btn-group">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('dashboard', year=(year if month>1 else year-1), month=(month-1 if month>1 else 12)) }}">← Mois précédent</a>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('dashboard', year=(year if month<12 else year+1), month=(month+1 if month<12 else 1)) }}">Mois suivant →</a>
+  </div>
+</div>
+
+<div class="calendar">
+  {% set weekdays = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"] %}
+  {% for wd in weekdays %}
+    <div class="text-center text-muted fw-semibold">{{ wd }}</div>
+  {% endfor %}
+  {# Compute leading blanks #}
+  {% set first_weekday = days[0].weekday() %} {# Monday=0 ... Sunday=6 #}
+  {% for _ in range(first_weekday) %}
+    <div></div>
+  {% endfor %}
+  {% for d in days %}
+    {% set p = existing.get(d) %}
+    <div class="day-cell" data-day="{{ d.isoformat() }}">
+      <div class="day-header">{{ d.day }}/{{ "%02d"|format(d.month) }}</div>
+      {% if p %}
+        <span class="badge bg-{% if p.status=='valide' %}success{% elif p.status=='refuse' %}danger{% else %}warning text-dark{% endif %} status-badge">
+          {% if p.status=='valide' %}Validé{% elif p.status=='refuse' %}Refusé{% else %}En attente{% endif %}
+        </span>
+        <div class="btn-group w-100 choice-pill">
+          <button class="btn btn-sm btn-outline-primary dropdown-toggle w-100" data-bs-toggle="dropdown">
+            {% if p.shift=='jour' %}Jour{% elif p.shift=='nuit' %}Nuit{% else %}Déplacement{% endif %}
+          </button>
+          <ul class="dropdown-menu w-100">
+            <li><a class="dropdown-item choose" data-shift="jour" href="#">Jour</a></li>
+            <li><a class="dropdown-item choose" data-shift="nuit" href="#">Nuit</a></li>
+            <li><a class="dropdown-item choose" data-shift="deplacement" href="#">Déplacement</a></li>
+          </ul>
+        </div>
+      {% else %}
+        <div class="btn-group w-100 choice-pill">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown">Pointer…</button>
+          <ul class="dropdown-menu w-100">
+            <li><a class="dropdown-item choose" data-shift="jour" href="#">Jour</a></li>
+            <li><a class="dropdown-item choose" data-shift="nuit" href="#">Nuit</a></li>
+            <li><a class="dropdown-item choose" data-shift="deplacement" href="#">Déplacement</a></li>
+          </ul>
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+
+<script>
+document.querySelectorAll(".dropdown-item.choose").forEach(el => {
+  el.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const li = e.target;
+    const cell = li.closest(".day-cell");
+    const day = cell.getAttribute("data-day");
+    const shift = li.getAttribute("data-shift");
+    const formData = new FormData();
+    formData.append("day", day);
+    formData.append("shift", shift);
+    const res = await fetch("{{ url_for('pointe') }}", { method: "POST", body: formData });
+    if (res.ok) { location.reload(); }
+    else {
+      const data = await res.json();
+      alert(data.error || "Erreur");
+    }
+  });
+});
+</script>
+{% endblock %}{% endraw %}
